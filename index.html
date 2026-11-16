@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>StrukinAja - Generator Struk & Kwitansi Resmi Praktik Bidan / Klinik Mandiri</title>
+  <meta name="description" content="Aplikasi generator struk dan kwitansi resmi praktik mandiri bidan dan klinik. Dilengkapi tanda tangan digital, stempel otomatis, export gambar HD, dan berjalan 100% offline di browser." />
+  
+  <!-- Favicon Medical Icon SVG -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23059669'><path d='M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z'/></svg>" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            medical: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b'
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- html2canvas CDN for High Resolution Image Export (scale: 3) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- ========================================================================
+       TOP HEADER & NAVIGATION
+       ======================================================================== -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      
+      <!-- Brand & Easter Egg Trigger (Click 5 times for Admin Key Generator) -->
+      <div 
+        id="adminSecretTrigger" 
+        role="button"
+        tabindex="0"
+        onclick="if(window.handleAdminSecretTap) window.handleAdminSecretTap(event);"
+        style="touch-action: manipulation; -webkit-user-select: none; user-select: none;"
+        class="flex items-center gap-2.5 cursor-pointer select-none group transition-transform active:scale-95"
+        title="Klik 5x berturut-turut untuk Akses Panel Admin Rahasia (atau tekan Ctrl+Shift+A)"
+      >
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition transform pointer-events-none">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/>
+          </svg>
+        </div>
+        <div class="pointer-events-none">
+          <div class="flex items-center gap-1.5">
+            <span class="text-base sm:text-lg font-black tracking-tight text-slate-900 group-hover:text-emerald-700 transition">
+              Strukin<span class="text-emerald-600">Aja</span>
+            </span>
+            <span class="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+              v2.6
+            </span>
+          </div>
+          <p class="text-[10px] sm:text-xs text-slate-500 font-medium leading-none hidden sm:block">
+            Kwitansi & Struk Resmi Praktik Bidan Mandiri
+          </p>
+        </div>
+      </div>
+
+      <!-- Header Right: PRO Status Badge & Quick Activation -->
+      <div class="flex items-center gap-2">
+        <!-- Live Dynamic PRO / TRIAL Badge -->
+        <div id="headerProBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white shadow-sm ring-1 ring-amber-400/50 cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          VERSI TRIAL
+        </div>
+
+        <!-- Help / WhatsApp Button -->
+        <a 
+          href="https://wa.me/6285176852680?text=Halo%20Admin%20StrukinAja,%20saya%20butuh%20bantuan%20aplikasi" 
+          target="_blank" 
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition border border-emerald-200"
+        >
+          <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.861.174.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.144.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824z"/></svg>
+          Bantuan WA
+        </a>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Segmented Switcher (Visible on < lg screens) -->
+    <div id="mobileNav" class="lg:hidden px-4 pb-2 pt-1 border-t border-slate-100 bg-white">
+      <div class="flex p-1 rounded-xl bg-slate-100 gap-1">
+        <button 
+          id="tabFormBtn" 
+          type="button" 
+          class="flex-1 py-2 text-center text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-sm transition"
+        >
+          📝 Isi Formulir
+        </button>
+        <button 
+          id="tabPreviewBtn" 
+          type="button" 
+          class="flex-1 py-2 text-center text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition"
+        >
+          🧾 Pratinjau Struk (Live)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN APP CONTENT
+       ======================================================================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+    <div class="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
+
+      <!-- ====================================================================
+           LEFT COLUMN: FORM INPUT CONTROLS
+           ==================================================================== -->
+      <div id="inputSection" class="lg:col-span-7 space-y-6">
+
+        <!-- 1. PENGATURAN PROFIL PRAKTIK (Auto localStorage) -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                1
+              </span>
+              <div>
+                <h2 class="text-sm font-bold text-slate-900">Pengaturan Profil Praktik</h2>
+                <p class="text-xs text-slate-500">Tersimpan otomatis di browser (localStorage)</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+              Auto-Save ✓
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            
+            <!-- Nama Praktik (Kunci Lisensi PRO) -->
+            <div class="sm:col-span-2">
+              <label for="profileClinicName" class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Nama Praktik Bidan / Klinik <span class="text-red-500">*</span></span>
+                <span class="text-[10px] text-amber-600 font-medium">Kunci Validasi Lisensi PRO</span>
+              </label>
+              <input 
+                type="text" 
+                id="profileClinicName" 
+                placeholder="Contoh: Praktik Mandiri Bidan Hj. Siti Rahmawati, S.Tr.Keb" 
+                class="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-slate-800 placeholder-slate-400 transition"
+              />
+            </div>
+
+            <!-- Nomor SIPB -->
+            <div>
+              <label for="profileSipb" class="block text-xs font-bold text-slate-700 mb-1">
+                Nomor SIPB / Izin Praktik
+              </label>
+              <input 
+                type="text" 
+                id="profileSipb" 
+                placeholder="503/SIPB/088/DINKES/2024" 
+                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Nama Bidan Pemeriksa -->
+            <div>
+              <label for="profileBidanName" class="block text-xs font-bold text-slate-700 mb-1">
+                Nama Bidan / Tenaga Medis
+              </label>
+              <input 
+                type="text" 
+                id="profileBidanName" 
+                placeholder="Bd. Hj. Siti Rahmawati, S.Tr.Keb" 
+                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Alamat Praktik -->
+            <div class="sm:col-span-2">
+              <label for="profileAddress" class="block text-xs font-bold text-slate-700 mb-1">
+                Alamat Lengkap Praktik
+              </label>
+              <input 
+                type="text" 
+                id="profileAddress" 
+                placeholder="Jl. Dahlia No. 15, RT 03/04, Kel. Sukajadi" 
+                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Kota & Nomor Telepon -->
+            <div>
+              <label for="profileCity" class="block text-xs font-bold text-slate-700 mb-1">
+                Kota / Wilayah Praktik
+              </label>
+              <input 
+                type="text" 
+                id="profileCity" 
+                placeholder="Bandung" 
+                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <div>
+              <label for="profilePhone" class="block text-xs font-bold text-slate-700 mb-1">
+                Nomor Telepon / WhatsApp
+              </label>
+              <input 
+                type="text" 
+                id="profilePhone" 
+                placeholder="0812-9876-5432" 
+                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Upload Logo Klinik (Base64) - Gembok if Trial -->
+            <div class="sm:col-span-2 pt-2 border-t border-slate-100">
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span>Logo Klinik Resmi</span>
+                  <span id="logoLockBadge" class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                    <svg class="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Terkunci (PRO Only)
+                  </span>
+                </label>
+                <button type="button" id="logoRemoveBtn" class="text-[11px] text-red-500 hover:text-red-700 font-semibold hidden">
+                  Hapus Logo
+                </button>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <div class="w-14 h-14 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <img id="logoPreviewImg" src="" alt="Preview Logo" class="w-full h-full object-contain hidden" />
+                  <span id="logoPlaceholder" class="text-slate-400 text-xs text-center p-1 font-medium">Logo</span>
+                </div>
+                <div class="flex-1">
+                  <input 
+                    type="file" 
+                    id="logoInput" 
+                    accept="image/png, image/jpeg, image/webp" 
+                    class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <p class="text-[10px] text-slate-400 mt-1">Format PNG / JPG transparan (disarankan maks. 2MB). Disimpan otomatis ke localStorage.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pilihan Warna Stempel Otomatis -->
+            <div id="stampConfigSection" class="sm:col-span-2 pt-2 border-t border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span>Warna Tinta Stempel Digital Otomatis</span>
+                  <span id="stampLockBadge" class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                    <svg class="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Terkunci di Versi Trial
+                  </span>
+                </label>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <label class="flex items-center justify-center gap-2 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
+                  <input type="radio" name="stampColor" value="purple" class="accent-purple-600" />
+                  <span class="text-xs font-semibold text-purple-700 flex items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-purple-700 inline-block"></span> Ungu
+                  </span>
+                </label>
+                <label class="flex items-center justify-center gap-2 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
+                  <input type="radio" name="stampColor" value="blue" class="accent-blue-600" />
+                  <span class="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-800 inline-block"></span> Biru Medis
+                  </span>
+                </label>
+                <label class="flex items-center justify-center gap-2 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
+                  <input type="radio" name="stampColor" value="red" class="accent-red-600" />
+                  <span class="text-xs font-semibold text-red-700 flex items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-600 inline-block"></span> Merah
+                  </span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 2. FORM TRANSAKSI PASIEN -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                2
+              </span>
+              <div>
+                <h2 class="text-sm font-bold text-slate-900">Data Pemeriksaan Pasien</h2>
+                <p class="text-xs text-slate-500">Nomor nota ter-generate otomatis dan dapat disesuaikan</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <!-- No Nota + Tombol Regenerate -->
+            <div>
+              <label for="patientNotaNumber" class="block text-xs font-bold text-slate-700 mb-1">
+                Nomor Nota / Kwitansi
+              </label>
+              <div class="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  id="patientNotaNumber" 
+                  placeholder="NOT-20261114-1234" 
+                  class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-slate-800 transition"
+                />
+                <button 
+                  type="button" 
+                  id="refreshNotaBtn" 
+                  title="Generate Nomor Baru"
+                  class="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition flex-shrink-0"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tanggal Pemeriksaan -->
+            <div>
+              <label for="patientExamDate" class="block text-xs font-bold text-slate-700 mb-1">
+                Tanggal Pemeriksaan
+              </label>
+              <input 
+                type="date" 
+                id="patientExamDate" 
+                class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Nama Pasien -->
+            <div>
+              <label for="patientName" class="block text-xs font-bold text-slate-700 mb-1">
+                Nama Pasien / Ibu Hamil
+              </label>
+              <input 
+                type="text" 
+                id="patientName" 
+                placeholder="Contoh: Ny. Maya Kartika" 
+                class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Usia Pasien -->
+            <div>
+              <label for="patientAge" class="block text-xs font-bold text-slate-700 mb-1">
+                Usia Pasien
+              </label>
+              <input 
+                type="text" 
+                id="patientAge" 
+                placeholder="Contoh: 27 Tahun / 3 Bulan" 
+                class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 transition"
+              />
+            </div>
+
+            <!-- Jenis Layanan / Diagnosa -->
+            <div class="sm:col-span-2">
+              <label for="patientServiceType" class="block text-xs font-bold text-slate-700 mb-1">
+                Diagnosa / Jenis Layanan Medis
+              </label>
+              <input 
+                type="text" 
+                id="patientServiceType" 
+                placeholder="Contoh: Pemeriksaan Kehamilan (ANC), Persalinan Normal, Suntik KB 3 Bulan, dll." 
+                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-800 transition"
+              />
+              
+              <!-- Quick Diagnostic / Service Pills -->
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <button type="button" data-service="Pemeriksaan Kehamilan (ANC)" class="service-pill text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition">
+                  ANC
+                </button>
+                <button type="button" data-service="Persalinan Normal & Nifas" class="service-pill text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition">
+                  Persalinan
+                </button>
+                <button type="button" data-service="Suntik KB 3 Bulan" class="service-pill text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition">
+                  KB 3 Bulan
+                </button>
+                <button type="button" data-service="Imunisasi Dasar Bayi" class="service-pill text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition">
+                  Imunisasi
+                </button>
+                <button type="button" data-service="Pemasangan IUD / Implan" class="service-pill text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition">
+                  IUD / Implan
+                </button>
+                <button type="button" data-service="Pemeriksaan Nifas (PNC)" class="service-pill text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition">
+                  PNC (Nifas)
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 3. RINCIAN BIAYA TINDAKAN & OBAT (Dynamic Item List) -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                3
+              </span>
+              <div>
+                <h2 class="text-sm font-bold text-slate-900">Rincian Tindakan & Obat</h2>
+                <p class="text-xs text-slate-500">Tambah atau kurangi baris tarif sesuai layanan</p>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              id="addItemBtn" 
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Tambah Baris
+            </button>
+          </div>
+
+          <!-- Quick Service Templates -->
+          <div class="mt-3 pt-1">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
+              Template Tarif Cepat Bidan:
+            </span>
+            <div id="quickServiceList" class="flex flex-wrap gap-1.5">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Table Header Labels -->
+          <div class="flex items-center gap-2 px-2 pt-4 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <div class="flex-1">Nama Layanan / Obat</div>
+            <div class="w-16 text-center">Qty</div>
+            <div class="w-28 text-right">Tarif (Rp)</div>
+            <div class="w-8"></div>
+          </div>
+
+          <!-- Dynamic Item Rows Container -->
+          <div id="itemsContainer" class="space-y-2">
+            <!-- Dynamic rows injected via JS -->
+          </div>
+        </div>
+
+        <!-- 4. TANDA TANGAN DIGITAL & STEMPEL RESMI -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                4
+              </span>
+              <div>
+                <h2 class="text-sm font-bold text-slate-900">Tanda Tangan Layar Sentuh</h2>
+                <p class="text-xs text-slate-500">Goreskan tanda tangan langsung di layar HP atau gunakan mouse</p>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              id="clearSigBtn" 
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+            >
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Bersihkan
+            </button>
+          </div>
+
+          <!-- Canvas Container -->
+          <div class="mt-4">
+            <div class="border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/70 p-1 relative overflow-hidden">
+              <canvas 
+                id="signatureCanvas" 
+                class="w-full h-36 rounded-lg bg-white block"
+              ></canvas>
+              <span class="absolute bottom-2 right-3 text-[10px] text-slate-400 font-serif italic pointer-events-none select-none">
+                Goreskan tanda tangan di sini
+              </span>
+            </div>
+
+            <!-- Save Signature Checkbox -->
+            <div class="mt-2.5 flex items-center justify-between">
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" id="saveSigCheckbox" class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" />
+                <span class="text-xs text-slate-600 font-medium">Simpan tanda tangan ini untuk struk pasien berikutnya</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. KARTU AKTIVASI PRO (SEKALI BAYAR RP35.000 SELAMANYA) -->
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 shadow-lg text-white border border-slate-700">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-emerald-500 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                  PRO UPGRADE
+                </span>
+                <span class="text-xs font-semibold text-emerald-400">Rp 35.000 (Sekali Bayar Selamanya)</span>
+              </div>
+              <h3 class="text-base font-extrabold mt-1 text-white">
+                Buka Semua Fitur Resmi StrukinAja PRO
+              </h3>
+              <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+                Hapus watermark merah, buka stempel digital resmi otomatis, dan upload logo klinik tanpa batas.
+              </p>
+            </div>
+          </div>
+
+          <!-- Dynamic Status Card -->
+          <div id="licenseStatusCard" class="mt-4 p-4 rounded-xl border border-amber-300/40 bg-amber-500/10 text-amber-200">
+            <div id="licenseStatusText">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Action Container -->
+          <div id="licenseInputContainer" class="mt-4 space-y-3">
+            <div class="p-3 bg-white/5 rounded-xl border border-white/10">
+              <span class="text-[11px] text-slate-300 block mb-1">
+                Kunci Lisensi Berdasarkan Nama Praktik:
+              </span>
+              <span id="licenseClinicNameDisplay" class="font-bold text-sm text-emerald-400 block truncate">
+                (Belum Mengisi Nama Praktik)
+              </span>
+            </div>
+
+            <!-- WhatsApp Purchase Button -->
+            <button 
+              type="button" 
+              id="buyLicenseWaBtn" 
+              class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30 transition transform active:scale-98"
+            >
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.861.174.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.144.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824z"/></svg>
+              Beli Kode Aktivasi via WhatsApp (Rp 35.000)
+            </button>
+
+            <!-- Input Activation Code -->
+            <div class="flex items-center gap-2 pt-1">
+              <input 
+                type="text" 
+                id="licenseKeyInput" 
+                maxlength="6" 
+                placeholder="6 Digit Kode (misal: A7X92B)" 
+                class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 font-mono font-bold tracking-widest text-center text-sm uppercase focus:ring-2 focus:ring-emerald-500"
+              />
+              <button 
+                type="button" 
+                id="activateLicenseBtn" 
+                class="px-4 py-2.5 rounded-xl font-bold text-xs bg-white text-slate-900 hover:bg-slate-100 transition flex-shrink-0"
+              >
+                Verifikasi & Aktifkan
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400 text-center">
+              Kode dikirim instan oleh admin via WhatsApp setelah konfirmasi transfer Rp 35.000.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ====================================================================
+           RIGHT COLUMN: LIVE RECEIPT PREVIEW (STICKY DESKTOP)
+           ==================================================================== -->
+      <div id="previewSection" class="lg:col-span-5 mt-6 lg:mt-0 sticky top-20">
+
+        <!-- Receipt Wrapper with Realistic Styling -->
+        <div class="flex justify-center">
+          <div 
+            id="receiptPaper" 
+            class="receipt-paper w-full max-w-[400px] rounded-2xl p-5 border border-slate-200/90 shadow-xl"
+          >
+            <!-- Receipt content dynamically populated via renderReceipt() in app.js -->
+          </div>
+        </div>
+
+        <!-- Action Buttons (Export, Print, Share, New) -->
+        <div id="actionButtons" class="mt-5 space-y-2.5 max-w-[400px] mx-auto">
+          
+          <!-- Download High-Res PNG Button (html2canvas scale: 3) -->
+          <button 
+            type="button" 
+            id="downloadImgBtn" 
+            class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/30 transition transform active:scale-98"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Unduh Gambar PNG (HD 3x)
+          </button>
+
+          <div class="grid grid-cols-2 gap-2">
+            <!-- Print Receipt Button -->
+            <button 
+              type="button" 
+              id="printReceiptBtn" 
+              class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl font-bold text-xs text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-sm transition"
+            >
+              <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Cetak / Print
+            </button>
+
+            <!-- Share to WhatsApp Button -->
+            <button 
+              type="button" 
+              id="shareWaBtn" 
+              class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl font-bold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+            >
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.861.174.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.144.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824z"/></svg>
+              Kirim ke WA
+            </button>
+          </div>
+
+          <!-- New Transaction Button -->
+          <button 
+            type="button" 
+            id="newTransactionBtn" 
+            class="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-semibold text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 transition"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Buat Transaksi Pasien Baru
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ========================================================================
+       FOOTER
+       ======================================================================== -->
+  <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500 no-print">
+    <div class="max-w-7xl mx-auto px-4">
+      <p class="font-bold text-slate-800">
+        StrukinAja &bull; Aplikasi Kwitansi Digital Praktik Mandiri Bidan & Klinik
+      </p>
+      <p class="text-[10px] text-slate-400 mt-2">
+        Hubungi Layanan Pengembang: <a href="https://wa.me/6285176852680" class="text-emerald-600 font-semibold hover:underline">WhatsApp 0851-7685-2680</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- ========================================================================
+       FLOATING PREVIEW BUTTON (Mobile Only)
+       ======================================================================== -->
+  <div class="lg:hidden fixed bottom-5 right-5 z-30">
+    <button 
+      type="button" 
+      id="floatPreviewBtn" 
+      class="flex items-center gap-2 px-4 py-3 rounded-full bg-emerald-600 text-white font-bold text-xs shadow-xl shadow-emerald-600/40 border border-emerald-400/40"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+      Lihat Struk
+    </button>
+  </div>
+
+  <!-- ========================================================================
+       TOAST NOTIFICATION CONTAINER
+       ======================================================================== -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- ========================================================================
+       SECRET ADMIN KEY GENERATOR MODAL (PIN: 210920)
+       ======================================================================== -->
+  <div id="adminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs">
+            🔒
+          </span>
+          <h3 class="font-extrabold text-slate-900 text-sm">
+            Panel Rahasia Pemilik (Admin Generator)
+          </h3>
+        </div>
+        <button type="button" id="closeAdminModalBtn" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Step 1: Input PIN Admin -->
+      <div id="adminPinStep" class="py-4">
+        <p class="text-xs text-slate-600 mb-3">
+          Fitur ini khusus pemilik aplikasi untuk menerbitkan kode aktivasi StrukinAja pelanggan.
+        </p>
+        <label for="adminPinInput" class="block text-xs font-bold text-slate-700 mb-1">
+          Masukkan PIN Admin:
+        </label>
+        <div class="flex gap-2">
+          <input 
+            type="password" 
+            id="adminPinInput" 
+            maxlength="8" 
+            placeholder="PIN 6 Digit" 
+            class="flex-1 px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-red-500 font-mono tracking-widest text-center"
+          />
+          <button 
+            type="button" 
+            id="adminPinSubmitBtn" 
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs transition"
+          >
+            Masuk
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Generator Kode Pelanggan -->
+      <div id="adminGeneratorStep" class="py-4 space-y-4 hidden">
+        <div>
+          <label for="adminClinicInput" class="block text-xs font-bold text-slate-700 mb-1">
+            Nama Praktik Bidan / Klinik Pelanggan:
+          </label>
+          <input 
+            type="text" 
+            id="adminClinicInput" 
+            placeholder="Ketik Nama Praktik persis seperti yang diinput pelanggan..." 
+            class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-800"
+          />
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900 text-white text-center">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            Kode Aktivasi Valid (6 Digit):
+          </span>
+          <span id="adminGeneratedKey" class="text-3xl font-mono font-black tracking-widest text-emerald-400 block my-1">
+            ------
+          </span>
+          <span class="text-[10px] text-slate-400">
+            Algoritma: STRUKINAJA_SECRET_2026 Salted
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button 
+            type="button" 
+            id="copyAdminKeyBtn" 
+            class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            Salin Kode
+          </button>
+          <button 
+            type="button" 
+            id="sendAdminWaBtn" 
+            class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition"
+          >
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.861.174.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.144.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824z"/></svg>
+            Kirim Balasan WA
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Core App JavaScript -->
+  <script src="app.js"></script>
+</body>
+</html>

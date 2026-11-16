@@ -1,0 +1,178 @@
+/* ==========================================================================
+   StrukinAja - Custom Stylesheet & Print Optimizations
+   ========================================================================== */
+
+/* Google Fonts imported for maximum sharpness */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --color-primary: #059669;
+  --color-primary-dark: #047857;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono-num {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* --------------------------------------------------------------------------
+   Touch-Friendly Signature Canvas
+   -------------------------------------------------------------------------- */
+#signatureCanvas {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* --------------------------------------------------------------------------
+   Receipt Container Aesthetics
+   -------------------------------------------------------------------------- */
+.receipt-paper {
+  background-color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Jagged Tear Edge for Bottom of Receipt (Thermal / Paper receipt effect) */
+.receipt-tear-edge {
+  background: radial-gradient(circle, transparent, transparent 50%, #ffffff 50%, #ffffff 100%);
+  background-size: 14px 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Watermark System (FREE / Trial Mode)
+   -------------------------------------------------------------------------- */
+.watermark-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  opacity: 0.18;
+}
+
+.watermark-text-row {
+  transform: rotate(-32deg) scale(1.1);
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 800;
+  color: #dc2626;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  line-height: 2.2;
+  text-align: center;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   Stempel Realism (Slight tilt & blend)
+   -------------------------------------------------------------------------- */
+.stamp-container {
+  mix-blend-mode: multiply;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Custom Scrollbar
+   -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* --------------------------------------------------------------------------
+   Toast Notifications
+   -------------------------------------------------------------------------- */
+.toast-slide-in {
+  animation: toastIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-slide-out {
+  animation: toastOut 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Print Optimizations (@media print)
+   -------------------------------------------------------------------------- */
+@media print {
+  /* Hide all UI elements except receipt */
+  header,
+  nav,
+  #inputSection,
+  #actionButtons,
+  #mobileNav,
+  #toastContainer,
+  #adminModal,
+  #licenseModal,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #000000 !important;
+  }
+
+  #previewSection {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  #receiptPaper {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 420px !important;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 8mm;
+    size: auto;
+  }
+}
