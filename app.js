@@ -1,7 +1,7 @@
 /**
- * StrukinAja - Core Application Logic
+ * StrukinAja v2.7 - Core Application Logic
  * Single Page Application for Midwife & Clinic Receipt Generator
- * 100% Client-Side with LocalStorage, Touch Signature, SVG Stamp & html2canvas
+ * 100% Client-Side with LocalStorage, Touch Signature, SVG Stamp & HD html2canvas Export
  */
 
 (function () {
@@ -22,27 +22,27 @@
     blue: {
       id: 'blue',
       name: 'Biru Medis',
-      hex: '#1e40af',      // tailwind blue-800
+      hex: '#1e40af',
       light: '#eff6ff',
       border: '#1d4ed8'
     },
     purple: {
       id: 'purple',
       name: 'Ungu Medis (Bidan)',
-      hex: '#7e22ce',      // tailwind purple-700
+      hex: '#7e22ce',
       light: '#faf5ff',
       border: '#6b21a8'
     },
     red: {
       id: 'red',
       name: 'Merah Resmi',
-      hex: '#dc2626',      // tailwind red-600
+      hex: '#dc2626',
       light: '#fef2f2',
       border: '#b91c1c'
     }
   };
 
-  // Default demo data for first time visitors
+  // Default demo data for first-time visitors
   const DEFAULT_PROFILE = {
     clinicName: "Praktik Mandiri Bidan Hj. Siti Rahmawati, S.Tr.Keb",
     sipb: "503/SIPB/088/DINKES/2024",
@@ -83,19 +83,64 @@
   ];
 
   // ==========================================================================
-  // 2. STATE MANAGEMENT
+  // 2. STATE MANAGEMENT & SAFE STORAGE HELPERS
   // ==========================================================================
   let appState = {
     profile: { ...DEFAULT_PROFILE },
-    patient: { ...DEFAULT_PATIENT },
+    patient: {
+      ...DEFAULT_PATIENT,
+      items: DEFAULT_PATIENT.items.map(it => ({ ...it }))
+    },
     licenseKey: "",
     signatureDataUrl: "",
     saveSignatureForNext: false,
-    activeTab: "form" // 'form' | 'preview' (for mobile)
+    activeTab: "form", // 'form' | 'preview' (for mobile < 1024px)
+    isReturningUser: false
   };
 
+  let resizeSignatureCanvasFn = null;
+
+  function safeStorageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.warn("localStorage.getItem gagal:", e);
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      console.warn("localStorage.setItem gagal:", e);
+      return false;
+    }
+  }
+
+  function safeStorageRemove(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      console.warn("localStorage.removeItem gagal:", e);
+      return false;
+    }
+  }
+
+  function safeJsonParse(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      console.warn("JSON.parse gagal (data korup/legacy diabaikan):", e);
+      return null;
+    }
+  }
+
   // ==========================================================================
-  // 3. DETERMINISTIC LICENSE KEY ALGORITHM
+  // 3. DETERMINISTIC LICENSE KEY ALGORITHM (PRESERVED)
   // ==========================================================================
   /**
    * Generates a 6-character alphanumeric uppercase activation key
@@ -150,7 +195,7 @@
   }
 
   // ==========================================================================
-  // 4. INDONESIAN "TERBILANG" ALGORITHM
+  // 4. INDONESIAN "TERBILANG" ALGORITHM & FORMATTERS (PRESERVED)
   // ==========================================================================
   /**
    * Converts a number to Indonesian grammatical words with "Rupiah".
@@ -227,35 +272,44 @@
     return `NOT-${y}${m}${day}-${rand}`;
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // ==========================================================================
-  // 5. TOAST NOTIFICATION SYSTEM
+  // 5. TOAST NOTIFICATION SYSTEM (CLEAN CLINICAL STYLE)
   // ==========================================================================
   function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
 
-    // Clear previous toasts so they never stack up
     container.innerHTML = '';
 
     const toast = document.createElement('div');
-    const bgColors = {
-      success: 'bg-emerald-600 text-white shadow-emerald-500/30',
-      error: 'bg-red-600 text-white shadow-red-500/30',
-      warning: 'bg-amber-600 text-white shadow-amber-500/30',
-      info: 'bg-slate-800 text-white shadow-slate-900/30'
+    const styles = {
+      success: 'bg-teal-700 text-white border border-teal-600 shadow-lg',
+      error: 'bg-red-600 text-white border border-red-500 shadow-lg',
+      warning: 'bg-amber-700 text-white border border-amber-600 shadow-lg',
+      info: 'bg-slate-900 text-white border border-slate-700 shadow-lg'
     };
 
     const icons = {
-      success: `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`,
-      error: `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`,
-      warning: `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`,
-      info: `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+      success: `<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`,
+      error: `<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>`,
+      warning: `<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`,
+      info: `<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
     };
 
-    toast.className = `flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg font-medium text-xs transition-all duration-300 pointer-events-auto toast-slide-in ${bgColors[type] || bgColors.info}`;
+    toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-xl font-medium text-xs transition-all duration-300 pointer-events-auto toast-slide-in ${styles[type] || styles.info}`;
     toast.innerHTML = `
       ${icons[type] || icons.info}
-      <span class="flex-1 leading-snug">${message}</span>
+      <span class="flex-1 leading-snug">${escapeHtml(message)}</span>
     `;
 
     container.appendChild(toast);
@@ -265,33 +319,40 @@
       toast.classList.add('toast-slide-out');
       setTimeout(() => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 250);
-    }, 2200);
+      }, 240);
+    }, 2600);
   }
 
   // ==========================================================================
-  // 6. STORAGE SYNC & RESTORE
+  // 6. STORAGE SYNC & RESTORE (FULLY TRY/CATCH PROTECTED)
   // ==========================================================================
   function loadStateFromStorage() {
-    try {
-      const savedProfile = localStorage.getItem(STORAGE_KEY_PROFILE) || localStorage.getItem('medstruk_profile_v1');
-      if (savedProfile) {
-        appState.profile = { ...DEFAULT_PROFILE, ...JSON.parse(savedProfile) };
-      }
+    let hasSavedClinicData = false;
+    let hasSavedLicense = false;
 
-      const savedKey = localStorage.getItem(STORAGE_KEY_LICENSE) || localStorage.getItem('medstruk_license_key_v1');
-      if (savedKey) {
-        appState.licenseKey = savedKey;
+    const rawProfile = safeStorageGet(STORAGE_KEY_PROFILE) || safeStorageGet('medstruk_profile_v1');
+    if (rawProfile) {
+      const parsedProfile = safeJsonParse(rawProfile);
+      if (parsedProfile && typeof parsedProfile === 'object' && !Array.isArray(parsedProfile)) {
+        appState.profile = { ...DEFAULT_PROFILE, ...parsedProfile };
+        hasSavedClinicData = true;
       }
-
-      const savedSig = localStorage.getItem(STORAGE_KEY_SAVED_SIG) || localStorage.getItem('medstruk_saved_signature_v1');
-      if (savedSig) {
-        appState.signatureDataUrl = savedSig;
-        appState.saveSignatureForNext = true;
-      }
-    } catch (e) {
-      console.warn("Error reading from localStorage:", e);
     }
+
+    const savedKey = safeStorageGet(STORAGE_KEY_LICENSE) || safeStorageGet('medstruk_license_key_v1');
+    if (savedKey && typeof savedKey === 'string' && savedKey.trim()) {
+      appState.licenseKey = savedKey.trim();
+      hasSavedLicense = true;
+    }
+
+    const savedSig = safeStorageGet(STORAGE_KEY_SAVED_SIG) || safeStorageGet('medstruk_saved_signature_v1');
+    if (savedSig && typeof savedSig === 'string' && savedSig.startsWith('data:image/')) {
+      appState.signatureDataUrl = savedSig;
+      appState.saveSignatureForNext = true;
+    }
+
+    // Returning user check: skip landing hero directly if clinic profile or license exists
+    appState.isReturningUser = hasSavedClinicData || hasSavedLicense;
 
     if (!appState.patient.notaNumber) {
       appState.patient.notaNumber = generateNotaNumber();
@@ -300,23 +361,92 @@
 
   function saveProfileToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(appState.profile));
+      const serialized = JSON.stringify(appState.profile);
+      safeStorageSet(STORAGE_KEY_PROFILE, serialized);
     } catch (e) {
-      console.warn("Error saving profile to localStorage:", e);
+      console.warn("Gagal menyimpan profil ke localStorage:", e);
     }
   }
 
   function saveLicenseToStorage(key) {
-    try {
-      localStorage.setItem(STORAGE_KEY_LICENSE, key);
-      appState.licenseKey = key;
-    } catch (e) {
-      console.warn("Error saving license to localStorage:", e);
+    appState.licenseKey = key;
+    safeStorageSet(STORAGE_KEY_LICENSE, key);
+  }
+
+  // ==========================================================================
+  // 7. SMART HERO / LANDING VIEW CONTROLLER
+  // ==========================================================================
+  function setupHeroSection() {
+    const heroSection = document.getElementById('heroSection');
+    const toggleHeroBtn = document.getElementById('toggleHeroBtn');
+    const dismissHeroBtn = document.getElementById('dismissHeroBtn');
+    const startWorkspaceBtn = document.getElementById('startWorkspaceBtn');
+    const heroUpgradeBtn = document.getElementById('heroUpgradeBtn');
+    const workspaceSection = document.getElementById('workspaceSection');
+
+    if (!heroSection) return;
+
+    function setHeroVisible(visible) {
+      if (visible) {
+        heroSection.classList.remove('hidden');
+        if (toggleHeroBtn) toggleHeroBtn.setAttribute('aria-expanded', 'true');
+      } else {
+        heroSection.classList.add('hidden');
+        if (toggleHeroBtn) toggleHeroBtn.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    // Show landing hero only to first-time visitors; open workspace directly if clinic/license exists
+    setHeroVisible(!appState.isReturningUser);
+
+    if (toggleHeroBtn) {
+      toggleHeroBtn.addEventListener('click', () => {
+        const isCurrentlyHidden = heroSection.classList.contains('hidden');
+        setHeroVisible(isCurrentlyHidden);
+        if (isCurrentlyHidden) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    }
+
+    if (dismissHeroBtn) {
+      dismissHeroBtn.addEventListener('click', () => setHeroVisible(false));
+    }
+
+    if (startWorkspaceBtn) {
+      startWorkspaceBtn.addEventListener('click', () => {
+        setHeroVisible(false);
+        if (window.innerWidth < 1024) {
+          switchMobileTab('form', { scrollToTop: false });
+        }
+        if (workspaceSection) {
+          workspaceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        const clinicInput = document.getElementById('profileClinicName');
+        if (clinicInput && window.innerWidth >= 1024) {
+          setTimeout(() => clinicInput.focus(), 250);
+        }
+      });
+    }
+
+    if (heroUpgradeBtn) {
+      heroUpgradeBtn.addEventListener('click', () => {
+        setHeroVisible(false);
+        if (window.innerWidth < 1024) {
+          switchMobileTab('form', { scrollToTop: false });
+        }
+        const proSection = document.getElementById('proLicenseSection');
+        if (proSection) {
+          setTimeout(() => {
+            proSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 80);
+        }
+      });
     }
   }
 
   // ==========================================================================
-  // 7. STEMPEL SVG GENERATION
+  // 8. STEMPEL SVG GENERATION (PRESERVED)
   // ==========================================================================
   /**
    * Generates a circular SVG stamp with curved top text, centered LUNAS,
@@ -363,7 +493,7 @@
           </textPath>
         </text>
 
-        <!-- Center Box with "LUNAS / PAID" -->
+        <!-- Center Box with "LUNAS" -->
         <line x1="36" y1="84" x2="164" y2="84" stroke="currentColor" stroke-width="1.6" opacity="0.9" />
         <text x="100" y="103" font-size="17" font-weight="900" text-anchor="middle" fill="currentColor" letter-spacing="2.5" opacity="0.98">
           LUNAS
@@ -385,7 +515,7 @@
   }
 
   // ==========================================================================
-  // 8. RENDER LIVE RECEIPT PREVIEW
+  // 9. RENDER LIVE RECEIPT PREVIEW & LIVE TOTAL BADGES
   // ==========================================================================
   function renderReceipt() {
     const paper = document.getElementById('receiptPaper');
@@ -404,19 +534,30 @@
       grandTotal += sub;
 
       return `
-        <tr class="border-b border-dashed border-slate-200 text-xs text-slate-900">
-          <td class="py-2 pr-2 text-left font-medium text-slate-900">
-            <span class="text-slate-400 font-mono text-[10px] mr-1">${idx + 1}.</span>
+        <tr class="border-b border-dashed border-slate-200 text-[11px] sm:text-xs text-slate-900">
+          <td class="py-2 pr-1.5 text-left font-medium text-slate-900 break-words leading-snug">
+            <span class="text-slate-400 font-mono-num text-[10px] mr-0.5">${idx + 1}.</span>
             ${escapeHtml(item.name || 'Tindakan/Obat')}
           </td>
-          <td class="py-2 px-1 text-center font-mono font-medium text-slate-900">${q}</td>
-          <td class="py-2 px-1 text-right font-mono text-slate-900">${formatRupiah(pr)}</td>
-          <td class="py-2 pl-2 text-right font-mono font-bold text-slate-900">${formatRupiah(sub)}</td>
+          <td class="py-2 px-1 text-center font-mono-num font-medium text-slate-900 whitespace-nowrap">${q}</td>
+          <td class="py-2 px-1 text-right font-mono-num text-slate-800 whitespace-nowrap">${formatRupiah(pr)}</td>
+          <td class="py-2 pl-1.5 text-right font-mono-num font-bold text-slate-900 whitespace-nowrap">${formatRupiah(sub)}</td>
         </tr>
       `;
     }).join('');
 
+    const formattedTotal = formatRupiah(grandTotal);
     const terbilangText = terbilang(grandTotal);
+
+    // Update live totals in mobile sticky tab bar & form footer
+    const mobileTotalBadge = document.getElementById('mobileTabTotalBadge');
+    if (mobileTotalBadge) {
+      mobileTotalBadge.textContent = formattedTotal;
+    }
+    const formRunningTotal = document.getElementById('formRunningTotal');
+    if (formRunningTotal) {
+      formRunningTotal.textContent = formattedTotal;
+    }
 
     // Dynamic Watermark: Only visible if NOT PRO
     const watermarkHtml = !isPro ? `
@@ -424,7 +565,7 @@
         ${Array(7).fill(0).map(() => `
           <div class="watermark-text-row">
             CONTOH STRUK - BELUM AKTIF<br>
-            <span class="text-xs tracking-normal font-bold opacity-80">(Aktivasi Rp35.000 via WA 085176852680)</span>
+            <span class="text-[11px] tracking-normal font-bold opacity-80">(Aktivasi Rp35.000 via WA 085176852680)</span>
           </div>
         `).join('')}
       </div>
@@ -434,13 +575,12 @@
     let logoHtml = '';
     if (isPro && p.logoBase64) {
       logoHtml = `
-        <img src="${p.logoBase64}" alt="Logo Klinik" class="w-14 h-14 object-contain rounded-lg border border-slate-200 p-0.5 shadow-sm" />
+        <img src="${p.logoBase64}" alt="Logo Klinik" class="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-lg border border-slate-200 p-0.5 flex-shrink-0" />
       `;
     } else {
-      // Default clean medical cross icon (neutral dark / black)
       logoHtml = `
-        <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center font-bold shadow-inner border border-slate-300 flex-shrink-0">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center font-bold border border-slate-300 flex-shrink-0">
+          <svg class="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/>
           </svg>
         </div>
@@ -451,14 +591,14 @@
     let stampHtml = '';
     if (isPro) {
       stampHtml = `
-        <div class="stamp-container absolute -top-5 -left-4 w-28 h-28 pointer-events-none z-10 opacity-90">
+        <div class="stamp-container absolute -top-5 -left-4 w-24 h-24 sm:w-28 sm:h-28 pointer-events-none z-10 opacity-90">
           ${generateStampSvg(p.stampColor, p.clinicName, p.sipb)}
         </div>
       `;
     } else {
       stampHtml = `
-        <div class="absolute -top-3 -left-3 px-2.5 py-1.5 rounded-lg border border-dashed border-red-300 bg-red-50/90 text-red-700 text-[10px] font-bold shadow-sm z-10 flex items-center gap-1">
-          <svg class="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <div class="absolute -top-3 -left-2 px-2 py-1 rounded-lg border border-dashed border-red-300 bg-red-50/90 text-red-700 text-[9px] font-bold z-10 flex items-center gap-1 whitespace-nowrap">
+          <svg class="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           STEMPEL KHUSUS PRO
         </div>
       `;
@@ -466,14 +606,14 @@
 
     // Midwife Signature Drawing
     const signatureImgHtml = appState.signatureDataUrl ? `
-      <img src="${appState.signatureDataUrl}" alt="Tanda Tangan" class="h-16 max-w-[150px] object-contain relative z-0" />
+      <img src="${appState.signatureDataUrl}" alt="Tanda Tangan" class="h-14 sm:h-16 max-w-[140px] sm:max-w-[150px] object-contain relative z-0" />
     ` : `
-      <div class="h-16 flex items-center justify-center text-slate-400 italic text-xs font-serif border border-dashed border-slate-200 rounded px-4">
+      <div class="h-14 sm:h-16 flex items-center justify-center text-slate-400 italic text-[11px] font-serif border border-dashed border-slate-200 rounded px-3">
         (Belum Ditandatangani)
       </div>
     `;
 
-    // Render receipt template - ALL BLACK/NEUTRAL FONTS ONLY
+    // Render crisp monochrome receipt template
     paper.innerHTML = `
       ${watermarkHtml}
 
@@ -482,47 +622,47 @@
         <div class="flex items-center gap-3">
           ${logoHtml}
           <div class="flex-1 min-w-0">
-            <h1 class="text-sm font-extrabold uppercase text-slate-900 leading-tight tracking-wide">
+            <h1 class="text-xs sm:text-sm font-extrabold uppercase text-slate-900 leading-tight tracking-wide break-words">
               ${escapeHtml(p.clinicName || 'PRAKTIK MANDIRI BIDAN')}
             </h1>
-            <p class="text-[11px] font-bold text-slate-900 tracking-tight mt-0.5">
+            <p class="text-[10px] sm:text-[11px] font-bold text-slate-900 tracking-tight mt-0.5 break-words">
               ${escapeHtml(p.sipb ? 'SIPB: ' + p.sipb : 'IZIN PRAKTIK RESMI')}
             </p>
-            <p class="text-[10px] text-slate-600 leading-tight mt-0.5">
+            <p class="text-[10px] text-slate-600 leading-tight mt-0.5 break-words">
               ${escapeHtml(p.address || 'Alamat Praktik')}
             </p>
-            ${p.phone ? `<p class="text-[10px] text-slate-600 font-mono">Telp/WA: ${escapeHtml(p.phone)}</p>` : ''}
+            ${p.phone ? `<p class="text-[10px] text-slate-600 font-mono-num">Telp/WA: ${escapeHtml(p.phone)}</p>` : ''}
           </div>
         </div>
       </div>
 
       <!-- Title & Document Info -->
       <div class="relative z-10 py-3 border-b border-dashed border-slate-300">
-        <div class="flex items-center justify-between">
-          <div class="bg-slate-100 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded tracking-wider uppercase border border-slate-300">
+        <div class="flex items-center justify-between gap-2">
+          <div class="bg-slate-100 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded tracking-wider uppercase border border-slate-300 whitespace-nowrap">
             KWITANSI RESMI
           </div>
-          <span class="text-[10px] font-mono font-bold text-slate-700">
+          <span class="text-[10px] font-mono-num font-bold text-slate-700 truncate">
             ${escapeHtml(pt.notaNumber || 'NOT-000000')}
           </span>
         </div>
 
-        <div class="grid grid-cols-2 gap-x-2 gap-y-1 mt-2.5 text-[11px]">
-          <div>
+        <div class="grid grid-cols-2 gap-x-2.5 gap-y-1.5 mt-2.5 text-[11px]">
+          <div class="min-w-0">
             <span class="text-slate-500 block text-[9px] uppercase tracking-wider font-semibold">Tanggal Periksa</span>
-            <span class="font-bold text-slate-900">${formatIndoDate(pt.examDate)}</span>
+            <span class="font-bold text-slate-900 block truncate">${formatIndoDate(pt.examDate)}</span>
           </div>
-          <div>
+          <div class="min-w-0">
             <span class="text-slate-500 block text-[9px] uppercase tracking-wider font-semibold">Nama Pasien</span>
-            <span class="font-bold text-slate-900 truncate block">${escapeHtml(pt.patientName || '-')}</span>
+            <span class="font-bold text-slate-900 block truncate">${escapeHtml(pt.patientName || '-')}</span>
           </div>
-          <div>
+          <div class="min-w-0">
             <span class="text-slate-500 block text-[9px] uppercase tracking-wider font-semibold">Usia Pasien</span>
-            <span class="font-bold text-slate-900">${escapeHtml(pt.patientAge || '-')}</span>
+            <span class="font-bold text-slate-900 block truncate">${escapeHtml(pt.patientAge || '-')}</span>
           </div>
-          <div>
+          <div class="min-w-0">
             <span class="text-slate-500 block text-[9px] uppercase tracking-wider font-semibold">Layanan / Diagnosa</span>
-            <span class="font-bold text-slate-900 truncate block">${escapeHtml(pt.serviceType || 'Pemeriksaan Umum')}</span>
+            <span class="font-bold text-slate-900 block truncate">${escapeHtml(pt.serviceType || 'Pemeriksaan Umum')}</span>
           </div>
         </div>
       </div>
@@ -531,11 +671,11 @@
       <div class="relative z-10 py-3">
         <table class="w-full border-collapse">
           <thead>
-            <tr class="border-b-2 border-slate-900 text-[10px] uppercase font-bold text-slate-700 tracking-wider">
-              <th class="py-1.5 pr-2 text-left">Rincian Tindakan / Obat</th>
-              <th class="py-1.5 px-1 text-center w-8">Qty</th>
-              <th class="py-1.5 px-1 text-right w-20">Tarif</th>
-              <th class="py-1.5 pl-2 text-right w-24">Subtotal</th>
+            <tr class="border-b-2 border-slate-900 text-[9.5px] sm:text-[10px] uppercase font-bold text-slate-700 tracking-wider">
+              <th class="py-1.5 pr-1.5 text-left">Rincian</th>
+              <th class="py-1.5 px-1 text-center w-7">Qty</th>
+              <th class="py-1.5 px-1 text-right whitespace-nowrap">Tarif</th>
+              <th class="py-1.5 pl-1.5 text-right whitespace-nowrap">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -545,14 +685,14 @@
       </div>
 
       <!-- Total & Terbilang -->
-      <div class="relative z-10 pt-2 pb-3 border-t-2 border-slate-900">
-        <div class="flex items-baseline justify-between">
+      <div class="relative z-10 pt-2.5 pb-3 border-t-2 border-slate-900">
+        <div class="flex items-baseline justify-between gap-2">
           <span class="text-xs font-black uppercase text-slate-900 tracking-wider">TOTAL TAGIHAN</span>
-          <span class="text-base font-black font-mono text-slate-900">${formatRupiah(grandTotal)}</span>
+          <span class="text-base font-black font-mono-num text-slate-900 whitespace-nowrap">${formattedTotal}</span>
         </div>
 
         <!-- Terbilang Box -->
-        <div class="mt-2 p-2 bg-slate-50 rounded-lg border border-slate-300 text-[10.5px]">
+        <div class="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-[10.5px]">
           <span class="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">Terbilang:</span>
           <span class="italic font-bold text-slate-900 leading-snug">
             "${terbilangText}"
@@ -562,16 +702,16 @@
 
       <!-- Signature & Official Stamp Section -->
       <div class="relative z-10 pt-3 pb-2 border-t border-dashed border-slate-300">
-        <div class="flex justify-between items-end">
-          <!-- Quick Status Badge (Neutral Dark) -->
-          <div class="text-[10px] text-slate-500 max-w-[130px] leading-tight pb-1">
-            <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${isPro ? 'bg-slate-100 text-slate-900 border border-slate-300' : 'bg-amber-100 text-amber-900 border border-amber-200'}">
-              ${isPro ? '✓ KWITANSI LUNAS' : '⚠️ STATUS TRIAL'}
+        <div class="flex justify-between items-end gap-2">
+          <!-- Status Pill -->
+          <div class="text-[10px] text-slate-500 max-w-[115px] leading-tight pb-1">
+            <span class="inline-block px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${isPro ? 'bg-slate-100 text-slate-900 border border-slate-300' : 'bg-amber-50 text-amber-900 border border-amber-200'}">
+              ${isPro ? 'KWITANSI LUNAS' : 'STATUS TRIAL'}
             </span>
           </div>
 
           <!-- Signature + Stamp Overlay Area -->
-          <div class="text-right">
+          <div class="text-right min-w-0">
             <p class="text-[10px] text-slate-600 font-medium">
               ${escapeHtml(p.city || 'Kota')}, ${formatIndoDate(pt.examDate)}
             </p>
@@ -579,15 +719,15 @@
               Bidan / Tenaga Medis Pemeriksa
             </p>
 
-            <div class="relative inline-flex items-center justify-end min-h-[64px] min-w-[150px]">
+            <div class="relative inline-flex items-center justify-end min-h-[60px] sm:min-h-[64px] min-w-[136px] sm:min-w-[150px]">
               ${signatureImgHtml}
               ${stampHtml}
             </div>
 
-            <p class="text-[11px] font-black text-slate-900 underline underline-offset-2 mt-1">
+            <p class="text-[11px] font-black text-slate-900 underline underline-offset-2 mt-1 break-words">
               ${escapeHtml(p.bidanName || p.clinicName || 'Bidan Praktik Mandiri')}
             </p>
-            <p class="text-[9px] text-slate-700 font-mono font-medium mt-0.5">
+            <p class="text-[9px] text-slate-700 font-mono-num font-medium mt-0.5">
               ${escapeHtml(p.sipb ? 'SIPB: ' + p.sipb : '')}
             </p>
           </div>
@@ -599,28 +739,17 @@
         <p class="text-[9px] font-semibold text-slate-600 tracking-tight">
           Kwitansi ini sah sebagai bukti pembayaran layanan kesehatan / klaim medis.
         </p>
-        <p class="text-[8px] text-slate-400 font-mono mt-0.5">
-          Dicetak otomatis via StrukinAja • ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+        <p class="text-[8px] text-slate-400 font-mono-num mt-0.5">
+          Dicetak otomatis via StrukinAja &bull; ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
         </p>
       </div>
     `;
 
-    // Update Pro UI states throughout the page
     updateProStatusUI();
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
   // ==========================================================================
-  // 9. UPDATE PRO BADGES & LOCKED FEATURE STATES
+  // 10. UPDATE PRO BADGES & LOCKED FEATURE STATES
   // ==========================================================================
   function updateProStatusUI() {
     const isPro = isProActive();
@@ -629,16 +758,16 @@
     const headerBadge = document.getElementById('headerProBadge');
     if (headerBadge) {
       if (isPro) {
-        headerBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/50";
+        headerBadge.className = "inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-xl text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 transition";
         headerBadge.innerHTML = `
-          <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          PRO AKTIF
+          <svg class="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          <span>PRO Aktif</span>
         `;
       } else {
-        headerBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white shadow-sm ring-1 ring-amber-400/50 cursor-pointer";
+        headerBadge.className = "inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-xl text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer";
         headerBadge.innerHTML = `
-          <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-          VERSI TRIAL (BELUM AKTIF)
+          <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></span>
+          <span>Versi Trial</span>
         `;
       }
     }
@@ -651,26 +780,26 @@
 
     if (licenseStatusCard && licenseStatusText) {
       if (isPro) {
-        licenseStatusCard.className = "p-4 rounded-xl border border-emerald-300 bg-emerald-50/70 text-emerald-900";
+        licenseStatusCard.className = "p-4 rounded-xl border border-teal-200 bg-teal-50/70 text-teal-900";
         licenseStatusText.innerHTML = `
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span class="font-extrabold text-sm text-emerald-800">Lisensi PRO Aktif Permanen</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-teal-600 flex-shrink-0"></span>
+            <span class="font-bold text-sm text-teal-900">Lisensi PRO Aktif Permanen</span>
           </div>
-          <p class="text-xs text-emerald-700 mt-1">
-            Terima kasih! Fitur Logo Resmi & Stempel Digital Otomatis telah terbuka tanpa watermark.
+          <p class="text-xs text-teal-800 mt-1 leading-relaxed">
+            Fitur Logo Klinik Resmi dan Stempel Digital Otomatis telah terbuka tanpa watermark.
           </p>
         `;
         if (licenseInputContainer) licenseInputContainer.classList.add('hidden');
       } else {
-        licenseStatusCard.className = "p-4 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-900";
+        licenseStatusCard.className = "p-4 rounded-xl border border-amber-200 bg-amber-50/70 text-amber-900";
         licenseStatusText.innerHTML = `
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-            <span class="font-extrabold text-sm text-amber-900">Versi Uji Coba (Terkunci)</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+            <span class="font-bold text-sm text-amber-900">Versi Uji Coba (Terkunci)</span>
           </div>
-          <p class="text-xs text-amber-800 mt-1">
-            Struk masih ber-watermark. Aktifkan lisensi PRO sekali bayar Rp35.000 untuk selamanya.
+          <p class="text-xs text-amber-800 mt-1 leading-relaxed">
+            Kwitansi masih menampilkan watermark contoh. Aktifkan lisensi PRO sekali bayar Rp 35.000 untuk selamanya.
           </p>
         `;
         if (licenseInputContainer) licenseInputContainer.classList.remove('hidden');
@@ -695,9 +824,8 @@
     }
 
     // Stempel Color Selector Locking
-    const stampSection = document.getElementById('stampConfigSection');
     const stampLockBadge = document.getElementById('stampLockBadge');
-    if (stampSection && stampLockBadge) {
+    if (stampLockBadge) {
       if (isPro) {
         stampLockBadge.classList.add('hidden');
       } else {
@@ -707,7 +835,7 @@
   }
 
   // ==========================================================================
-  // 10. FORM INPUT BINDINGS
+  // 11. FORM INPUT BINDINGS
   // ==========================================================================
   function bindProfileInputs() {
     const fields = [
@@ -740,7 +868,6 @@
       radio.addEventListener('change', (e) => {
         if (!isProActive()) {
           showToast("Pilihan Stempel Digital adalah fitur PRO. Silakan lakukan aktivasi terlebih dahulu.", "warning");
-          // Revert selection
           stampRadios.forEach(r => r.checked = (r.value === appState.profile.stampColor));
           return;
         }
@@ -799,7 +926,7 @@
           saveProfileToStorage();
           updateLogoPreviewUI();
           renderReceipt();
-          showToast("Logo klinik berhasil disimpan!", "success");
+          showToast("Logo klinik berhasil disimpan.", "success");
         };
         reader.readAsDataURL(file);
       });
@@ -816,6 +943,20 @@
     }
   }
 
+  function syncPatientInputsFromState() {
+    const fields = [
+      { id: 'patientNotaNumber', prop: 'notaNumber' },
+      { id: 'patientExamDate', prop: 'examDate' },
+      { id: 'patientName', prop: 'patientName' },
+      { id: 'patientAge', prop: 'patientAge' },
+      { id: 'patientServiceType', prop: 'serviceType' }
+    ];
+    fields.forEach(({ id, prop }) => {
+      const el = document.getElementById(id);
+      if (el) el.value = appState.patient[prop] || '';
+    });
+  }
+
   function bindPatientInputs() {
     const fields = [
       { id: 'patientNotaNumber', prop: 'notaNumber' },
@@ -825,10 +966,11 @@
       { id: 'patientServiceType', prop: 'serviceType' }
     ];
 
+    syncPatientInputsFromState();
+
     fields.forEach(({ id, prop }) => {
       const el = document.getElementById(id);
       if (el) {
-        el.value = appState.patient[prop] || '';
         el.addEventListener('input', (e) => {
           appState.patient[prop] = e.target.value;
           renderReceipt();
@@ -864,7 +1006,7 @@
   }
 
   // ==========================================================================
-  // 11. DYNAMIC ITEMS MANAGEMENT
+  // 12. DYNAMIC ITEMS MANAGEMENT (MOBILE MINI-CARDS + DESKTOP GRID)
   // ==========================================================================
   function renderDynamicItemRows() {
     const container = document.getElementById('itemsContainer');
@@ -874,49 +1016,68 @@
 
     appState.patient.items.forEach((item, index) => {
       const row = document.createElement('div');
-      row.className = "flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl transition hover:border-emerald-300";
+      row.className = "p-3 sm:p-2.5 bg-slate-50/80 sm:bg-white border border-slate-200 rounded-xl space-y-2.5 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-2.5 sm:items-center transition hover:border-teal-300";
       row.innerHTML = `
-        <div class="flex-1 min-w-0">
-          <input 
-            type="text" 
-            placeholder="Nama Tindakan atau Obat" 
-            value="${escapeHtml(item.name)}" 
-            data-index="${index}" 
-            data-field="name"
-            class="item-field w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 focus:ring-1 focus:ring-emerald-500 font-medium text-slate-800"
-          />
+        <!-- Mobile Row 1: Service Name + Delete Button (flattens to grid on sm+) -->
+        <div class="flex items-end gap-2 sm:contents">
+          <div class="flex-1 min-w-0 sm:col-span-6">
+            <label class="block sm:hidden text-[11px] font-semibold text-slate-500 mb-1">
+              Nama Layanan / Obat
+            </label>
+            <input
+              type="text"
+              placeholder="Nama Tindakan atau Obat"
+              value="${escapeHtml(item.name)}"
+              data-index="${index}"
+              data-field="name"
+              class="item-field w-full min-h-[44px] px-3 py-2 text-base lg:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 font-medium text-slate-900 placeholder-slate-400 transition"
+            />
+          </div>
+          <button
+            type="button"
+            data-index="${index}"
+            aria-label="Hapus baris tindakan"
+            title="Hapus Baris"
+            class="delete-item-btn sm:col-span-1 sm:order-last sm:justify-self-end w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition flex-shrink-0"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
-        <div class="w-16 flex-shrink-0">
-          <input 
-            type="number" 
-            min="1" 
-            value="${item.qty}" 
-            data-index="${index}" 
-            data-field="qty"
-            placeholder="Qty"
-            class="item-field w-full px-2 py-1.5 text-xs text-center rounded-lg border border-slate-200 focus:ring-1 focus:ring-emerald-500 font-mono font-medium text-slate-800"
-          />
+
+        <!-- Mobile Row 2: Qty + Price Side-by-Side (flattens to grid on sm+) -->
+        <div class="grid grid-cols-12 gap-2.5 sm:contents">
+          <div class="col-span-4 sm:col-span-2">
+            <label class="block sm:hidden text-[11px] font-semibold text-slate-500 mb-1">
+              Qty
+            </label>
+            <input
+              type="number"
+              inputmode="numeric"
+              min="1"
+              value="${item.qty}"
+              data-index="${index}"
+              data-field="qty"
+              placeholder="1"
+              class="item-field w-full min-h-[44px] px-2.5 py-2 text-base lg:text-sm text-center rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 font-mono-num font-semibold text-slate-900 transition"
+            />
+          </div>
+          <div class="col-span-8 sm:col-span-3">
+            <label class="block sm:hidden text-[11px] font-semibold text-slate-500 mb-1">
+              Tarif (Rp)
+            </label>
+            <input
+              type="number"
+              inputmode="numeric"
+              min="0"
+              step="1000"
+              value="${item.price}"
+              data-index="${index}"
+              data-field="price"
+              placeholder="0"
+              class="item-field w-full min-h-[44px] px-3 py-2 text-base lg:text-sm text-right rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 font-mono-num font-semibold text-slate-900 transition"
+            />
+          </div>
         </div>
-        <div class="w-28 flex-shrink-0">
-          <input 
-            type="number" 
-            min="0" 
-            step="1000"
-            value="${item.price}" 
-            data-index="${index}" 
-            data-field="price"
-            placeholder="Tarif (Rp)"
-            class="item-field w-full px-2 py-1.5 text-xs text-right rounded-lg border border-slate-200 focus:ring-1 focus:ring-emerald-500 font-mono font-semibold text-slate-800"
-          />
-        </div>
-        <button 
-          type="button" 
-          data-index="${index}" 
-          class="delete-item-btn p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition flex-shrink-0"
-          title="Hapus Baris"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
       `;
       container.appendChild(row);
     });
@@ -926,6 +1087,8 @@
       input.addEventListener('input', (e) => {
         const idx = parseInt(e.target.getAttribute('data-index'), 10);
         const field = e.target.getAttribute('data-field');
+        if (!appState.patient.items[idx]) return;
+
         if (field === 'qty') {
           appState.patient.items[idx].qty = Math.max(1, parseInt(e.target.value, 10) || 1);
         } else if (field === 'price') {
@@ -939,10 +1102,9 @@
 
     // Attach delete listeners
     container.querySelectorAll('.delete-item-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         const idx = parseInt(btn.getAttribute('data-index'), 10);
         if (appState.patient.items.length <= 1) {
-          // Keep at least one row, just reset it
           appState.patient.items[0] = { name: "", qty: 1, price: 0 };
         } else {
           appState.patient.items.splice(idx, 1);
@@ -960,7 +1122,6 @@
         appState.patient.items.push({ name: "", qty: 1, price: 0 });
         renderDynamicItemRows();
         renderReceipt();
-        // Focus new item input
         setTimeout(() => {
           const container = document.getElementById('itemsContainer');
           if (container && container.lastElementChild) {
@@ -971,17 +1132,17 @@
       });
     }
 
-    // Quick Add Service Buttons
+    // Quick Add Service Buttons (Thumb-friendly 44px min height)
     const quickServiceContainer = document.getElementById('quickServiceList');
     if (quickServiceContainer) {
       quickServiceContainer.innerHTML = QUICK_SERVICES.map((srv, i) => `
-        <button 
-          type="button" 
-          data-qs-index="${i}" 
-          class="quick-srv-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60 hover:bg-emerald-100 hover:border-emerald-300 transition text-left"
+        <button
+          type="button"
+          data-qs-index="${i}"
+          class="quick-srv-chip inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-900 transition text-left"
         >
-          <span>+ ${escapeHtml(srv.name)}</span>
-          <span class="text-[10px] text-emerald-600 font-mono font-semibold">${formatRupiah(srv.price)}</span>
+          <span class="font-semibold">+ ${escapeHtml(srv.name)}</span>
+          <span class="text-[11px] text-teal-700 font-mono-num font-semibold whitespace-nowrap">${formatRupiah(srv.price)}</span>
         </button>
       `).join('');
 
@@ -990,7 +1151,6 @@
           const idx = parseInt(btn.getAttribute('data-qs-index'), 10);
           const template = QUICK_SERVICES[idx];
           if (template) {
-            // If the only existing row is empty, overwrite it
             if (appState.patient.items.length === 1 && !appState.patient.items[0].name && appState.patient.items[0].price === 0) {
               appState.patient.items[0] = { ...template, qty: 1 };
             } else {
@@ -1005,35 +1165,49 @@
   }
 
   // ==========================================================================
-  // 12. TOUCH & POINTER SIGNATURE CANVAS
+  // 13. TOUCH & POINTER SIGNATURE CANVAS (SHARP DPR + NO SCROLL)
   // ==========================================================================
   function setupSignatureCanvas() {
     const canvas = document.getElementById('signatureCanvas');
     if (!canvas) return;
 
+    canvas.style.touchAction = 'none';
     const ctx = canvas.getContext('2d');
     let isDrawing = false;
     let lastX = 0;
     let lastY = 0;
+    let lastCssWidth = 0;
+    let lastCssHeight = 0;
+    let activePointerId = null;
 
-    // Canvas sizing with devicePixelRatio support for maximum sharpness
-    function resizeCanvas() {
-      const rect = canvas.getBoundingClientRect();
-      const width = rect.width || (canvas.parentElement ? canvas.parentElement.clientWidth : 340);
-      const height = rect.height || 144;
-      const dpr = window.devicePixelRatio || 1;
-      
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      
-      // Reset transform then scale
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-
-      ctx.strokeStyle = '#1e3a8a'; // Deep blue ballpoint pen ink
+    function configureStroke() {
+      ctx.strokeStyle = '#1e3a8a'; // Deep blue ballpoint ink
       ctx.lineWidth = 2.4;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+    }
+
+    function resizeCanvas(force = false) {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+
+      // Do not wipe canvas when hidden (e.g. mobile preview tab)
+      if (width === 0 || height === 0) return;
+      if (!force && Math.abs(width - lastCssWidth) <= 2 && Math.abs(height - lastCssHeight) <= 2) {
+        return;
+      }
+
+      lastCssWidth = width;
+      lastCssHeight = height;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      configureStroke();
 
       if (appState.signatureDataUrl) {
         const img = new Image();
@@ -1044,9 +1218,10 @@
       }
     }
 
-    // Initial resize after a short tick to ensure layout is computed
-    setTimeout(resizeCanvas, 100);
-    window.addEventListener('resize', resizeCanvas);
+    resizeSignatureCanvasFn = resizeCanvas;
+
+    setTimeout(() => resizeCanvas(true), 80);
+    window.addEventListener('resize', () => resizeCanvas(false));
 
     function getCoords(e) {
       const rect = canvas.getBoundingClientRect();
@@ -1064,28 +1239,27 @@
       };
     }
 
-    function startDrawing(e) {
-      e.preventDefault();
+    function beginStroke(coords) {
+      // Ensure canvas buffer is initialized if it was hidden earlier
+      if (lastCssWidth === 0) {
+        resizeCanvas(true);
+      }
       isDrawing = true;
-      const coords = getCoords(e);
       lastX = coords.x;
       lastY = coords.y;
 
-      // Draw initial dot for taps/clicks
+      configureStroke();
       ctx.beginPath();
       ctx.arc(lastX, lastY, 1.2, 0, Math.PI * 2);
       ctx.fillStyle = '#1e3a8a';
       ctx.fill();
     }
 
-    function draw(e) {
+    function continueStroke(coords) {
       if (!isDrawing) return;
-      e.preventDefault();
-      const coords = getCoords(e);
-
+      configureStroke();
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
-      // Smooth curve interpolation
       const midX = (lastX + coords.x) / 2;
       const midY = (lastY + coords.y) / 2;
       ctx.quadraticCurveTo(lastX, lastY, midX, midY);
@@ -1096,52 +1270,74 @@
       lastY = coords.y;
     }
 
-    function stopDrawing() {
+    function finishStroke() {
       if (!isDrawing) return;
       isDrawing = false;
+      activePointerId = null;
       const dataUrl = canvas.toDataURL('image/png');
       appState.signatureDataUrl = dataUrl;
-      
+
       if (appState.saveSignatureForNext) {
-        try {
-          localStorage.setItem(STORAGE_KEY_SAVED_SIG, dataUrl);
-        } catch (e) {
-          console.warn("Could not save signature to storage:", e);
-        }
+        safeStorageSet(STORAGE_KEY_SAVED_SIG, dataUrl);
       }
 
       renderReceipt();
     }
 
-    // Touch events with active prevention of scroll
-    canvas.addEventListener('touchstart', startDrawing, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', stopDrawing);
-    canvas.addEventListener('touchcancel', stopDrawing);
+    // Unified Pointer Events for crisp finger, stylus & mouse tracking
+    if (window.PointerEvent) {
+      canvas.addEventListener('pointerdown', (e) => {
+        if (e.button && e.button !== 0) return;
+        e.preventDefault();
+        activePointerId = e.pointerId;
+        try {
+          canvas.setPointerCapture(e.pointerId);
+        } catch (_) {}
+        beginStroke(getCoords(e));
+      });
 
-    // Mouse / Pointer events
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseleave', stopDrawing);
+      canvas.addEventListener('pointermove', (e) => {
+        if (!isDrawing || (activePointerId !== null && e.pointerId !== activePointerId)) return;
+        e.preventDefault();
+        continueStroke(getCoords(e));
+      });
+
+      canvas.addEventListener('pointerup', (e) => {
+        if (activePointerId !== null && e.pointerId !== activePointerId) return;
+        finishStroke();
+      });
+
+      canvas.addEventListener('pointercancel', finishStroke);
+
+      // Extra iOS Safari safeguard against page scroll while touching canvas
+      canvas.addEventListener('touchmove', (e) => {
+        if (isDrawing) e.preventDefault();
+      }, { passive: false });
+    } else {
+      // Fallback for older browsers without PointerEvent
+      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); beginStroke(getCoords(e)); }, { passive: false });
+      canvas.addEventListener('touchmove', (e) => { e.preventDefault(); continueStroke(getCoords(e)); }, { passive: false });
+      canvas.addEventListener('touchend', finishStroke);
+      canvas.addEventListener('touchcancel', finishStroke);
+
+      canvas.addEventListener('mousedown', (e) => { e.preventDefault(); beginStroke(getCoords(e)); });
+      canvas.addEventListener('mousemove', (e) => { if (isDrawing) { e.preventDefault(); continueStroke(getCoords(e)); } });
+      canvas.addEventListener('mouseup', finishStroke);
+      canvas.addEventListener('mouseleave', finishStroke);
+    }
 
     // Clear Canvas Button
     const clearBtn = document.getElementById('clearSigBtn');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.scale(dpr, dpr);
-        ctx.strokeStyle = '#1e3a8a';
-        ctx.lineWidth = 2.4;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        configureStroke();
 
         appState.signatureDataUrl = "";
-        try {
-          localStorage.removeItem(STORAGE_KEY_SAVED_SIG);
-        } catch (e) {}
+        safeStorageRemove(STORAGE_KEY_SAVED_SIG);
         renderReceipt();
       });
     }
@@ -1153,16 +1349,16 @@
       saveSigCheck.addEventListener('change', (e) => {
         appState.saveSignatureForNext = e.target.checked;
         if (e.target.checked && appState.signatureDataUrl) {
-          localStorage.setItem(STORAGE_KEY_SAVED_SIG, appState.signatureDataUrl);
+          safeStorageSet(STORAGE_KEY_SAVED_SIG, appState.signatureDataUrl);
         } else if (!e.target.checked) {
-          localStorage.removeItem(STORAGE_KEY_SAVED_SIG);
+          safeStorageRemove(STORAGE_KEY_SAVED_SIG);
         }
       });
     }
   }
 
   // ==========================================================================
-  // 13. HIGH RESOLUTION EXPORT (html2canvas)
+  // 14. HIGH RESOLUTION EXPORT (FIXED PRINT WIDTH + SCALE 3x HD)
   // ==========================================================================
   function setupExportActions() {
     const downloadBtn = document.getElementById('downloadImgBtn');
@@ -1170,7 +1366,6 @@
     const shareWaBtn = document.getElementById('shareWaBtn');
     const newTransactionBtn = document.getElementById('newTransactionBtn');
 
-    // Download High-Resolution PNG (Scale: 3)
     if (downloadBtn) {
       downloadBtn.addEventListener('click', async () => {
         const receiptEl = document.getElementById('receiptPaper');
@@ -1181,17 +1376,56 @@
           return;
         }
 
-        const originalBtnText = downloadBtn.innerHTML;
+        const originalBtnHtml = downloadBtn.innerHTML;
         downloadBtn.disabled = true;
         downloadBtn.innerHTML = `
           <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-          Memproses Gambar HD...
+          <span>Memproses Gambar HD...</span>
         `;
 
+        // Offscreen fixed print-ready wrapper (420px) so 360px phones still export full crisp HD width
+        let exportStage = null;
         try {
-          // Render via html2canvas with scale 3 for ultra-sharp result
-          const canvas = await html2canvas(receiptEl, {
+          exportStage = document.createElement('div');
+          exportStage.style.position = 'fixed';
+          exportStage.style.left = '-9999px';
+          exportStage.style.top = '0';
+          exportStage.style.width = '420px';
+          exportStage.style.backgroundColor = '#ffffff';
+          exportStage.style.zIndex = '-1';
+          exportStage.style.pointerEvents = 'none';
+
+          const clonedReceipt = receiptEl.cloneNode(true);
+          clonedReceipt.removeAttribute('id');
+
+          // Ensure SVG textPath IDs are unique inside the offscreen export clone
+          clonedReceipt.querySelectorAll('path[id^="stamp"]').forEach((pathEl) => {
+            const oldId = pathEl.getAttribute('id');
+            const newId = oldId + '_export';
+            pathEl.setAttribute('id', newId);
+            clonedReceipt.querySelectorAll(`textPath[href="#${oldId}"]`).forEach((tp) => {
+              tp.setAttribute('href', `#${newId}`);
+            });
+          });
+
+          clonedReceipt.style.width = '420px';
+          clonedReceipt.style.maxWidth = '420px';
+          clonedReceipt.style.minWidth = '420px';
+          clonedReceipt.style.margin = '0';
+          clonedReceipt.style.padding = '22px';
+          clonedReceipt.style.borderRadius = '0px';
+          clonedReceipt.style.boxShadow = 'none';
+          clonedReceipt.style.border = '1px solid #e2e8f0';
+
+          exportStage.appendChild(clonedReceipt);
+          document.body.appendChild(exportStage);
+
+          // Wait one frame for layout & SVG textPath calculations
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+          const canvas = await html2canvas(clonedReceipt, {
             scale: 3,
+            width: 420,
             useCORS: true,
             logging: false,
             backgroundColor: '#ffffff'
@@ -1201,7 +1435,6 @@
           const notaClean = (appState.patient.notaNumber || 'Nota').replace(/[^a-zA-Z0-9]/g, '_');
           const filename = `Struk_${patientClean}_${notaClean}.png`;
 
-          // Trigger download
           const link = document.createElement('a');
           link.download = filename;
           link.href = canvas.toDataURL('image/png');
@@ -1209,18 +1442,21 @@
           link.click();
           document.body.removeChild(link);
 
-          showToast("Struk resolusi tinggi (HD 3x) berhasil diunduh!", "success");
+          showToast("Kwitansi resolusi tinggi (HD 3x) berhasil diunduh.", "success");
         } catch (err) {
           console.error("Export error:", err);
           showToast("Gagal mengunduh gambar: " + err.message, "error");
         } finally {
+          if (exportStage && exportStage.parentNode) {
+            exportStage.parentNode.removeChild(exportStage);
+          }
           downloadBtn.disabled = false;
-          downloadBtn.innerHTML = originalBtnText;
+          downloadBtn.innerHTML = originalBtnHtml;
         }
       });
     }
 
-    // Print Receipt via window.print()
+    // Print Receipt
     if (printBtn) {
       printBtn.addEventListener('click', () => {
         window.print();
@@ -1234,9 +1470,11 @@
         const p = appState.profile;
         let total = 0;
         const itemsList = pt.items.map(it => {
-          const sub = (it.qty || 1) * (it.price || 0);
+          const q = Math.max(1, parseInt(it.qty, 10) || 1);
+          const pr = Math.max(0, parseInt(it.price, 10) || 0);
+          const sub = q * pr;
           total += sub;
-          return `• ${it.name} (${it.qty}x) = ${formatRupiah(sub)}`;
+          return `• ${it.name || 'Tindakan/Obat'} (${q}x) = ${formatRupiah(sub)}`;
         }).join('\n');
 
         const message = `*KWITANSI RESMI LAYANAN KESEHATAN*\n` +
@@ -1272,74 +1510,57 @@
           items: [{ name: "", qty: 1, price: 0 }]
         };
 
-        // Reset inputs
-        bindPatientInputs();
+        syncPatientInputsFromState();
         renderDynamicItemRows();
-        
-        // If midwife didn't check save signature, clear it
+
         if (!appState.saveSignatureForNext) {
           appState.signatureDataUrl = "";
           const canvas = document.getElementById('signatureCanvas');
           if (canvas) {
             const ctx = canvas.getContext('2d');
-            const dpr = window.devicePixelRatio || 1;
-            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const dpr = Math.min(window.devicePixelRatio || 1, 3);
+            ctx.scale(dpr, dpr);
           }
         }
 
         renderReceipt();
 
-        // On mobile, switch to form tab
         if (window.innerWidth < 1024) {
-          switchMobileTab('form');
+          switchMobileTab('form', { scrollToTop: true });
         }
       });
     }
   }
 
   // ==========================================================================
-  // 14. PRO ACTIVATION & WHATSAPP PURCHASE FLOW
+  // 15. PRO ACTIVATION & WHATSAPP PURCHASE FLOW (PRESERVED)
   // ==========================================================================
   function setupLicenseActivation() {
     const buyWaBtn = document.getElementById('buyLicenseWaBtn');
     const activateBtn = document.getElementById('activateLicenseBtn');
     const licenseInput = document.getElementById('licenseKeyInput');
-    const openLicenseModalBtn = document.getElementById('openLicenseModalBtn');
-    const closeLicenseModalBtn = document.getElementById('closeLicenseModalBtn');
-    const licenseModal = document.getElementById('licenseModal');
-
-    // Open/Close License Modal
-    if (openLicenseModalBtn && licenseModal) {
-      openLicenseModalBtn.addEventListener('click', () => {
-        licenseModal.classList.remove('hidden');
-      });
-    }
-
-    if (closeLicenseModalBtn && licenseModal) {
-      closeLicenseModalBtn.addEventListener('click', () => {
-        licenseModal.classList.add('hidden');
-      });
-    }
-
-    // Header badge click scrolls directly to PRO activation section
     const headerBadge = document.getElementById('headerProBadge');
+
     if (headerBadge) {
       headerBadge.addEventListener('click', () => {
         if (!isProActive()) {
           if (window.innerWidth < 1024) {
-            switchMobileTab('form');
+            switchMobileTab('form', { scrollToTop: false });
           }
-          const proCard = document.getElementById('licenseStatusCard');
+          const proCard = document.getElementById('proLicenseSection');
           if (proCard) {
-            proCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            proCard.classList.add('ring-2', 'ring-emerald-400');
-            setTimeout(() => proCard.classList.remove('ring-2', 'ring-emerald-400'), 1500);
+            setTimeout(() => {
+              proCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              proCard.classList.add('ring-2', 'ring-teal-500');
+              setTimeout(() => proCard.classList.remove('ring-2', 'ring-teal-500'), 1400);
+            }, 60);
           }
         }
       });
     }
 
-    // Buy via WhatsApp Button
     if (buyWaBtn) {
       buyWaBtn.addEventListener('click', () => {
         const clinicName = (appState.profile.clinicName || '').trim();
@@ -1356,9 +1577,8 @@
       });
     }
 
-    // Validate and Activate Code
     function processActivation() {
-      const code = (licenseInput.value || '').trim().toUpperCase();
+      const code = (licenseInput ? licenseInput.value : '').trim().toUpperCase();
       const clinicName = (appState.profile.clinicName || '').trim();
 
       if (!clinicName) {
@@ -1376,8 +1596,7 @@
       if (code === expectedKey) {
         saveLicenseToStorage(code);
         renderReceipt();
-        showToast("🎉 Selamat! StrukinAja PRO berhasil diaktifkan secara permanen!", "success");
-        if (licenseModal) licenseModal.classList.add('hidden');
+        showToast("Selamat! StrukinAja PRO berhasil diaktifkan secara permanen.", "success");
       } else {
         showToast("Kode aktivasi tidak valid untuk Nama Praktik ini. Pastikan penulisan nama klinik sama persis.", "error");
       }
@@ -1398,7 +1617,7 @@
   }
 
   // ==========================================================================
-  // 15. SECRET ADMIN PANEL (5 CLICKS ON HEADER TITLE / LOGO)
+  // 16. SECRET ADMIN PANEL (5 CLICKS ON HEADER LOGO / CTRL+SHIFT+A)
   // ==========================================================================
   function setupSecretAdminPanel() {
     const adminTrigger = document.getElementById('adminSecretTrigger');
@@ -1428,11 +1647,9 @@
       tapCount++;
       clearTimeout(tapTimer);
 
-      // Subtle press animation on header logo
       adminTrigger.classList.add('scale-95');
       setTimeout(() => adminTrigger.classList.remove('scale-95'), 120);
 
-      // Silently open modal on 5th tap without showing progress toasts
       if (tapCount >= 5) {
         tapCount = 0;
         clearTimeout(tapTimer);
@@ -1440,34 +1657,19 @@
         return;
       }
 
-      // 4 seconds timeout window before count resets
       tapTimer = setTimeout(() => {
         tapCount = 0;
       }, 4000);
     }
 
-    // Attach click listener
     adminTrigger.addEventListener('click', handleTap);
-
-    // Make trigger function available on window
     window.handleAdminSecretTap = handleTap;
 
-    // Connect footer admin link as backup access
-    const footerAdminBtn = document.getElementById('footerAdminLink');
-    if (footerAdminBtn) {
-      footerAdminBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        openAdminModal();
-      });
-    }
-
-    // Also support keyboard shortcut for desktop (Ctrl+Shift+A or Alt+A)
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) || (e.altKey && (e.key === 'A' || e.key === 'a'))) {
         e.preventDefault();
         openAdminModal();
       }
-      // Close modal on Escape
       if (e.key === 'Escape' && adminModal && (!adminModal.classList.contains('hidden') || adminModal.style.display === 'flex')) {
         closeAdminModal();
       }
@@ -1495,7 +1697,6 @@
       closeAdminModalBtn.addEventListener('click', closeAdminModal);
     }
 
-    // Close modal when clicking backdrop outside dialog
     if (adminModal) {
       adminModal.addEventListener('click', (e) => {
         if (e.target === adminModal) {
@@ -1509,14 +1710,13 @@
       if (pin === ADMIN_PIN) {
         adminPinStep.classList.add('hidden');
         adminGeneratorStep.classList.remove('hidden');
-        // Pre-fill with current clinic name for fast testing
         if (appState.profile.clinicName) {
           adminClinicInput.value = appState.profile.clinicName;
           updateAdminGenerator();
         }
-        showToast("Akses Admin Terverifikasi!", "success");
+        showToast("Akses Admin terverifikasi.", "success");
       } else {
-        showToast("PIN Admin salah!", "error");
+        showToast("PIN Admin salah.", "error");
         adminPinInput.value = '';
         adminPinInput.focus();
       }
@@ -1550,7 +1750,7 @@
         const key = adminGeneratedKey.textContent.trim();
         if (key && key !== "------") {
           navigator.clipboard.writeText(key).then(() => {
-            showToast(`Kode "${key}" berhasil disalin ke clipboard!`, "success");
+            showToast(`Kode "${key}" berhasil disalin ke clipboard.`, "success");
           }).catch(() => {
             showToast(`Kode: ${key}`, "info");
           });
@@ -1584,42 +1784,68 @@
   }
 
   // ==========================================================================
-  // 16. MOBILE NAVIGATION TABS
+  // 17. MOBILE STICKY SEGMENTED TAB SWITCHER (< 1024px)
   // ==========================================================================
-  function switchMobileTab(tab) {
+  function switchMobileTab(tab, options = {}) {
+    const { scrollToTop = true } = options;
     appState.activeTab = tab;
+
     const formSection = document.getElementById('inputSection');
     const previewSection = document.getElementById('previewSection');
     const tabFormBtn = document.getElementById('tabFormBtn');
     const tabPreviewBtn = document.getElementById('tabPreviewBtn');
+    const totalBadge = document.getElementById('mobileTabTotalBadge');
 
     if (!formSection || !previewSection) return;
 
     if (tab === 'form') {
-      formSection.classList.remove('hidden');
-      previewSection.classList.add('hidden');
-      previewSection.classList.remove('block');
+      // Responsive classes keep both panels visible on desktop (>= 1024px)
+      formSection.classList.remove('hidden', 'lg:block');
+      previewSection.classList.add('hidden', 'lg:block');
 
       if (tabFormBtn) {
-        tabFormBtn.className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-sm transition";
+        tabFormBtn.className = "flex items-center justify-center gap-1.5 min-h-[48px] px-2 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white shadow-sm transition";
+        tabFormBtn.setAttribute('aria-pressed', 'true');
       }
       if (tabPreviewBtn) {
-        tabPreviewBtn.className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition";
+        tabPreviewBtn.className = "flex flex-col items-center justify-center min-h-[48px] px-2 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 transition";
+        tabPreviewBtn.setAttribute('aria-pressed', 'false');
       }
+      if (totalBadge) {
+        totalBadge.className = "mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-mono-num font-bold bg-teal-50 text-teal-700 border border-teal-200 leading-none";
+      }
+
+      // Re-initialize canvas sizing once form panel is visible
+      setTimeout(() => {
+        if (typeof resizeSignatureCanvasFn === 'function') {
+          resizeSignatureCanvasFn(false);
+        }
+      }, 60);
     } else {
-      formSection.classList.add('hidden');
-      previewSection.classList.remove('hidden');
-      previewSection.classList.add('block');
+      formSection.classList.add('hidden', 'lg:block');
+      previewSection.classList.remove('hidden', 'lg:block');
 
       if (tabFormBtn) {
-        tabFormBtn.className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition";
+        tabFormBtn.className = "flex items-center justify-center gap-1.5 min-h-[48px] px-2 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 transition";
+        tabFormBtn.setAttribute('aria-pressed', 'false');
       }
       if (tabPreviewBtn) {
-        tabPreviewBtn.className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-sm transition";
+        tabPreviewBtn.className = "flex flex-col items-center justify-center min-h-[48px] px-2 py-1.5 rounded-xl text-xs font-bold bg-teal-600 text-white shadow-sm transition";
+        tabPreviewBtn.setAttribute('aria-pressed', 'true');
+      }
+      if (totalBadge) {
+        totalBadge.className = "mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-mono-num font-bold bg-white/20 text-white border border-white/25 leading-none";
       }
 
-      // Re-render when switching to preview to guarantee full sharpness
       renderReceipt();
+    }
+
+    if (scrollToTop && window.innerWidth < 1024) {
+      const workspace = document.getElementById('workspaceSection');
+      if (workspace) {
+        const y = workspace.getBoundingClientRect().top + window.scrollY - 76;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      }
     }
   }
 
@@ -1628,24 +1854,19 @@
     const tabPreviewBtn = document.getElementById('tabPreviewBtn');
 
     if (tabFormBtn) {
-      tabFormBtn.addEventListener('click', () => switchMobileTab('form'));
+      tabFormBtn.addEventListener('click', () => switchMobileTab('form', { scrollToTop: true }));
     }
     if (tabPreviewBtn) {
-      tabPreviewBtn.addEventListener('click', () => switchMobileTab('preview'));
-    }
-
-    // Quick floating preview button on mobile
-    const floatPreviewBtn = document.getElementById('floatPreviewBtn');
-    if (floatPreviewBtn) {
-      floatPreviewBtn.addEventListener('click', () => switchMobileTab('preview'));
+      tabPreviewBtn.addEventListener('click', () => switchMobileTab('preview', { scrollToTop: true }));
     }
   }
 
   // ==========================================================================
-  // 17. INITIALIZATION
+  // 18. INITIALIZATION
   // ==========================================================================
   function init() {
     loadStateFromStorage();
+    setupHeroSection();
     bindProfileInputs();
     bindPatientInputs();
     setupItemControls();
@@ -1657,15 +1878,12 @@
     setupMobileTabs();
     renderReceipt();
 
-    // Check screen width for initial mobile tab state
-    if (window.innerWidth < 1024) {
-      switchMobileTab('form');
-    }
+    // Always initialize responsive tab classes (lg:block preserves desktop 2-col layout)
+    switchMobileTab('form', { scrollToTop: false });
 
-    console.log("StrukinAja initialized successfully.");
+    console.log("StrukinAja v2.7 initialized successfully.");
   }
 
-  // Run when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
